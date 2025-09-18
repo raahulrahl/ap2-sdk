@@ -7,7 +7,7 @@ agents and the framework.
 
 from __future__ import annotations as _annotations
 
-from typing import Annotated, Any, Literal, TypeVar, Union
+from typing import Annotated, Any, Literal, List, TypeVar, Union, Dict
 from uuid import UUID
 
 import pydantic
@@ -79,6 +79,12 @@ IdentityProvider: TypeAlias = Literal[
     "auth0",  # Auth0 identity provider <NotPartOfA2A>
     "custom",  # Custom identity provider <NotPartOfA2A>
 ]
+
+CONTACT_ADDRESS_DATA_KEY = "contact_picker.ContactAddress"
+PAYMENT_METHOD_DATA_DATA_KEY = "payment_request.PaymentMethodData"
+CART_MANDATE_DATA_KEY = "ap2.mandates.CartMandate"
+INTENT_MANDATE_DATA_KEY = "ap2.mandates.IntentMandate"
+PAYMENT_MANDATE_DATA_KEY = "ap2.mandates.PaymentMandate"
 
 # -----------------------------------------------------------------------------
 # Content & Message Parts
@@ -517,7 +523,7 @@ class TaskArtifactUpdateEvent(TypedDict):
 
 @pydantic.with_config({"alias_generator": to_camel})
 class TaskSendParams(TypedDict):
-    """Internal parameters for task execution within the framework. <NotPartOfA2A>"""
+    """Internal parameters for task execution within the framework. <NotPartOfA2A>."""
 
     task_id: Required[UUID]
     """The ID of the task."""
@@ -556,7 +562,7 @@ class TaskQueryParams(TaskIdParams):
 
 @pydantic.with_config({"alias_generator": to_camel})
 class ListTasksParams(TypedDict):
-    """Defines parameters for listing tasks. <NotPartOfA2A>"""
+    """Defines parameters for listing tasks. <NotPartOfA2A>."""
 
     history_length: NotRequired[int]
     """The length of the history."""
@@ -567,7 +573,7 @@ class ListTasksParams(TypedDict):
 
 @pydantic.with_config({"alias_generator": to_camel})
 class TaskFeedbackParams(TypedDict):
-    """Defines parameters for providing feedback on a task. <NotPartOfA2A>"""
+    """Defines parameters for providing feedback on a task. <NotPartOfA2A>."""
 
     task_id: Required[UUID]
     """The ID of the task."""
@@ -580,5 +586,658 @@ class TaskFeedbackParams(TypedDict):
     
     metadata: NotRequired[dict[str, Any]]
     """Additional metadata."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class MessageSendConfiguration(TypedDict):
+    """Configuration for message sending."""
+
+    accepted_output_modes: Required[list[str]]
+    """The accepted output modes."""
+    
+    blocking: NotRequired[bool]
+    """The blocking mode."""
+    
+    history_length: NotRequired[int]
+    """The history length."""
+    
+    push_notification_config: NotRequired[PushNotificationConfig]
+    """The push notification configuration."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class MessageSendParams(TypedDict):
+    """Parameters for sending messages."""
+
+    configuration: Required[MessageSendConfiguration]
+    """The configuration for message sending."""
+    
+    message: Required[Message]
+    """The message to send."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class ListTaskPushNotificationConfigParams(TypedDict):
+    """Parameters for getting list of pushNotificationConfigurations associated with a Task."""
+
+    id: Required[UUID]
+    """The ID of the task."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class DeleteTaskPushNotificationConfigParams(TypedDict):
+    """Parameters for removing pushNotificationConfiguration associated with a Task."""
+
+    id: Required[UUID]
+    """The ID of the task."""
+    
+    push_notification_config_id: Required[UUID]
+    """The ID of the push notification configuration."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+
+
+# -----------------------------------------------------------------------------
+# Context <NotPartOfA2A>
+# -----------------------------------------------------------------------------
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class Context(TypedDict):
+    """Conversation session that groups related tasks and maintains interaction history.
+
+    Contexts serve as conversation containers in the Pebbling protocol, managing
+    the complete interaction lifecycle between clients and agents. They maintain
+    conversation continuity, preserve context across multiple tasks, and provide
+    session-level organization.
+
+    Core Responsibilities:
+    - Session Management: Group related tasks under a unified conversation
+    - History Preservation: Maintain complete message history across tasks
+    - Context Continuity: Preserve conversation state and references
+    - Metadata Tracking: Store session-level information and preferences
+
+    Context Lifecycle:
+    1. Creation: Client initiates conversation or system creates implicit context
+    2. Task Association: Multiple tasks can belong to the same context
+    3. History Building: Messages and artifacts accumulate over time
+    4. State Management: Track conversation status and metadata
+    5. Completion: Context can be closed or archived when conversation ends
+
+    Key Properties:
+    - Multi-Task: Contains multiple related tasks over time
+    - Stateful: Maintains conversation history and context
+    - Client-Controlled: Clients can explicitly manage context lifecycle
+    - Traceable: Unique ID enables context tracking and reference
+
+    Context Relationships:
+    - Contains: Multiple tasks (one-to-many relationship)
+    - Maintains: Complete conversation history across all tasks
+    - Preserves: Session-level metadata and preferences
+    - References: Can link to other contexts for complex workflows
+    """
+
+    context_id: Required[UUID]
+    """The ID of the context."""
+    
+    kind: Required[Literal["context"]]
+    """The type of the context."""
+
+    tasks: NotRequired[list[UUID]]
+    """List of task IDs belonging to this context."""
+
+    name: NotRequired[str]
+    """Human-readable context name."""
+    
+    description: NotRequired[str]
+    """Context purpose or summary."""
+    
+    role: Required[str]
+    """Role of the context."""
+    
+    created_at: Required[str] = Field(
+        examples=["2023-10-27T10:00:00Z"], description="ISO datetime when context was created"
+    )
+    updated_at: Required[str] = Field(
+        examples=["2023-10-27T10:00:00Z"], description="ISO datetime when context was last updated"
+    )
+
+    status: NotRequired[Literal["active", "paused", "completed", "archived"]]
+    """Context status."""
+    
+    tags: NotRequired[list[str]]
+    """Organizational tags."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Custom context metadata."""
+
+    parent_context_id: NotRequired[UUID]
+    """For nested or related contexts."""
+    
+    reference_context_ids: NotRequired[list[UUID]]
+    """Related contexts."""
+    
+    extensions: NotRequired[dict[str, Any]]
+    """Additional extensions."""
+
+
+# -----------------------------------------------------------------------------
+# Context Operations <NotPartOfA2A>
+# -----------------------------------------------------------------------------
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class ContextIdParams(TypedDict):
+    """Parameters for context identification."""
+
+    context_id: Required[UUID]
+    """The ID of the context."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class ContextQueryParams(ContextIdParams):
+    """Query parameters for a context."""
+
+    history_length: NotRequired[int]
+    """The length of the history."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class ListContextsParams(TypedDict):
+    """Parameters for listing contexts."""
+
+    history_length: NotRequired[int]
+    """The length of the list."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+
+
+# -----------------------------------------------------------------------------
+# Agent-to-Agent Negotiation Models <NotPartOfA2A>
+# -----------------------------------------------------------------------------
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class NegotiationProposal(TypedDict):
+    """Structured negotiation proposal exchanged between agents."""
+
+    proposal_id: Required[UUID]
+    """The ID of the proposal."""
+    
+    from_agent: Required[UUID]
+    """The ID of the agent making the proposal."""
+    
+    to_agent: Required[UUID]
+    """The ID of the agent receiving the proposal."""
+    
+    terms: Required[Dict[str, Any]]
+    """The terms of the proposal."""
+    
+    timestamp: Required[str]
+    """The timestamp of the proposal."""
+    
+    status: Required[NegotiationStatus]
+    """The status of the proposal."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class NegotiationContext(TypedDict):
+    """Context details for agent-to-agent negotiations."""
+
+    context_id: Required[UUID]
+    """The ID of the context."""
+    
+    status: Required[NegotiationStatus]
+    """The status of the context."""
+    
+    participants: Required[List[str]]
+    """The participants in the context."""
+    
+    proposals: Required[List[NegotiationProposal]]
+    """The proposals in the context."""
+
+
+# -----------------------------------------------------------------------------
+# Payment Models - Mainly Agent Payments Protocol AP2
+# -----------------------------------------------------------------------------
+
+@pydantic.with_config({"alias_generator": to_camel})
+class ContactAddress(TypedDict):
+    """The ContactAddress interface represents a physical address."""
+
+    city: NotRequired[str]
+    """The city."""
+    
+    country: NotRequired[str]
+    """The country."""
+    
+    dependent_locality: NotRequired[str]
+    """The dependent locality."""
+    
+    organization: NotRequired[str]
+    """The organization."""
+    
+    phone_number: NotRequired[str]
+    """The phone number."""
+    
+    postal_code: NotRequired[str]
+    """The postal code."""
+    
+    recipient: NotRequired[str]
+    """The recipient."""
+    
+    region: NotRequired[str]
+    """The region."""
+    
+    sorting_code: NotRequired[str]
+    """The sorting code."""
+    
+    address_line: NotRequired[list[str]]
+    """The address line."""
+
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentCurrencyAmount(TypedDict):
+    """A PaymentCurrencyAmount is used to supply monetary amounts."""
+
+    currency: Required[str]
+    """The three-letter ISO 4217 currency code."""
+    
+    value: Required[float]
+    """The monetary value."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentItem(TypedDict):
+    """An item for purchase and the value asked for it."""
+    
+    label: Required[str]
+    """A human-readable description of the item."""
+    
+    amount: Required[PaymentCurrencyAmount]
+    """The monetary amount of the item."""
+    
+    pending: NotRequired[bool]
+    """If true, indicates the amount is not final."""
+    
+    refund_period: NotRequired[int]
+    """The refund duration for this item, in days."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentShippingOption(TypedDict):
+    """Describes a shipping option."""
+    
+    id: Required[str]
+    """A unique identifier for the shipping option."""
+    
+    label: Required[str]
+    """A human-readable description of the shipping option."""
+    
+    amount: Required[PaymentCurrencyAmount]
+    """The cost of this shipping option."""
+    
+    selected: NotRequired[bool]
+    """If true, indicates this as the default option."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentOptions(TypedDict):
+    """Information about the eligible payment options for the payment request."""
+    
+    request_payer_name: NotRequired[bool]
+    """Indicates if the payer's name should be collected."""
+    
+    request_payer_email: NotRequired[bool]
+    """Indicates if the payer's email should be collected."""
+    
+    request_payer_phone: NotRequired[bool]
+    """Indicates if the payer's phone number should be collected."""
+    
+    request_shipping: NotRequired[bool]
+    """Indicates if the payer's shipping address should be collected."""
+    
+    shipping_type: NotRequired[str]
+    """Can be `shipping`, `delivery`, or `pickup`."""
+    
+
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentMethodData(TypedDict):
+    """Indicates a payment method and associated data specific to the method."""
+    
+    supported_methods: Required[str]
+    """A string identifying the payment method."""
+    
+    data: NotRequired[Dict[str, Any]]
+    """Payment method specific details."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentDetailsModifier(TypedDict):
+    """Provides details that modify the payment details based on a payment method."""
+    
+    supported_methods: Required[str]
+    """The payment method ID that this modifier applies to."""
+    
+    total: NotRequired[PaymentItem]
+    """A PaymentItem value that overrides the original item total."""
+    
+    additional_display_items: NotRequired[list[PaymentItem]]
+    """Additional PaymentItems applicable for this payment method."""
+    
+    data: NotRequired[Any]
+    """Payment method specific data for the modifier."""
+    
+
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentDetailsInit(TypedDict):
+    """Contains the details of the payment being requested."""
+    
+    id: Required[str]
+    """A unique identifier for the payment request."""
+    
+    display_items: Required[list[PaymentItem]]
+    """A list of payment items to be displayed to the user."""
+    
+    shipping_options: NotRequired[list[PaymentShippingOption]]
+    """A list of available shipping options."""
+    
+    modifiers: NotRequired[list[PaymentDetailsModifier]]
+    """A list of price modifiers for particular payment methods."""
+    
+    total: Required[PaymentItem]
+    """The total payment amount."""
+    
+    description: NotRequired[str]
+    """A description of the payment request."""
+    
+    
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentRequest(TypedDict):
+    """A request for payment."""
+
+    method_data: list[PaymentMethodData]
+    """A list of supported payment methods."""
+    
+    details: PaymentDetailsInit
+    """The financial details of the transaction."""
+    
+    options: NotRequired[PaymentOptions]
+    """Information about the eligible payment options for the payment request."""
+    
+    shipping_address: NotRequired[ContactAddress]
+    """The user's provided shipping address."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentResponse(TypedDict):
+    """Indicates a user has chosen a payment method & approved a payment request."""
+    
+    request_id: Required[str]
+    """The unique ID from the original PaymentRequest."""
+    
+    method_name: Required[str]
+    """The payment method chosen by the user."""
+    
+    details: NotRequired[Dict[str, Any]]
+    """A dictionary generated by a payment method that a merchant can use to process a transaction. The contents will depend upon the payment method."""
+    
+    shipping_address: NotRequired[ContactAddress]
+    """The user's provided shipping address."""
+    
+    shipping_option: NotRequired[PaymentShippingOption]
+    """The selected shipping option."""
+    
+    payer_name: NotRequired[str]
+    """The name of the payer."""
+    
+    payer_email: NotRequired[str]
+    """The email of the payer."""
+    
+    payer_phone: NotRequired[str]
+    """The phone number of the payer."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class IntentMandate(TypedDict):
+    """Represents the user's purchase intent.
+
+    These are the initial fields utilized in the human-present flow. For
+    human-not-present flows, additional fields will be added to this mandate.
+    """
+
+    user_cart_confirmation_required: Required[bool]
+    """
+    If false, the agent can make purchases on the user's behalf once all
+    purchase conditions have been satisfied. This must be true if the
+    intent mandate is not signed by the user.
+    """
+    
+    natural_language_description: Required[str]
+    """
+    The natural language description of the user's intent. This is
+    generated by the shopping agent, and confirmed by the user. The
+    goal is to have informed consent by the user."""
+    
+    merchants: NotRequired[list[str]]
+    """
+    Merchants allowed to fulfill the intent. If not set, the shopping
+    agent is able to work with any suitable merchant."""
+
+    skus: NotRequired[list[str]]
+    """
+    A list of specific product SKUs. If not set, any SKU is allowed."""
+    
+    requires_refundability: NotRequired[bool]
+    """
+    If true, items must be refundable."""
+    
+    intent_expiry: Required[str]
+    """
+    When the intent mandate expires, in ISO 8601 format."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class CartContents(TypedDict):
+    """The detailed contents of a cart.
+
+    This object is signed by the merchant to create a CartMandate.
+    """
+
+    id: Required[str]
+    """A unique identifier for this cart."""
+    
+    user_cart_confirmation_required: Required[bool]
+    """
+    If true, the merchant requires the user to confirm the cart before
+    the purchase can be completed."""
+    
+    payment_request: Required[PaymentRequest]
+    """
+    The W3C PaymentRequest object to initiate payment. This contains the
+    items being purchased, prices, and the set of payment methods
+    accepted by the merchant for this cart."""
+    
+    cart_expiry: Required[str]
+    """
+    When this cart expires, in ISO 8601 format."""
+    
+    merchant_name: Required[str]
+    """
+    The name of the merchant."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class CartMandate(TypedDict):
+    """A cart whose contents have been digitally signed by the merchant.
+
+    This serves as a guarantee of the items and price for a limited time.
+    """
+
+    contents: Required[CartContents]
+    """The contents of the cart."""
+    
+    merchant_authorization: NotRequired[str]
+    """ A base64url-encoded JSON Web Token (JWT) that digitally
+        signs the cart contents, guaranteeing its authenticity and integrity:
+        1. Header includes the signing algorithm and key ID.
+        2. Payload includes:
+          - iss, sub, aud: Identifiers for the merchant (issuer)
+            and the intended recipient (audience), like a payment processor.
+          - iat: iat, exp: Timestamps for the token's creation and its
+            short-lived expiration (e.g., 5-15 minutes) to enhance security.
+          - jti: Unique identifier for the JWT to prevent replay attacks.
+          - cart_hash: A secure hash of the CartMandate, ensuring
+             integrity. The hash is computed over the canonical JSON
+             representation of the CartContents object.
+        3. Signature: A digital signature created with the merchant's private
+          key. It allows anyone with the public key to verify the token's
+          authenticity and confirm that the payload has not been tampered with.
+        The entire JWT is base64url encoded to ensure safe transmission.
+        """
+
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentMandateContents(TypedDict):
+    """The data contents of a PaymentMandate."""
+
+    payment_mandate_id: Required[str]
+    """A unique identifier for this payment mandate."""
+    
+    payment_details_id: Required[str]
+    """A unique identifier for the payment request."""
+
+    payment_details_total: Required[PaymentItem]
+    """The total payment amount."""
+    
+    payment_response: Required[PaymentResponse]
+    """The payment response containing details of the payment method chosen by the user."""
+    
+    merchant_agent: Required[str]
+    """Identifier for the merchant."""
+    
+    timestamp: Required[str]
+    """The date and time the mandate was created, in ISO 8601 format."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class PaymentMandate(TypedDict):
+    """Contains the user's instructions & authorization for payment.
+
+    While the Cart and Intent mandates are required by the merchant to fulfill the
+    order, separately the protocol provides additional visibility into the agentic
+    transaction to the payments ecosystem. For this purpose, the PaymentMandate
+    (bound to Cart/Intent mandate but containing separate information) may be
+    shared with the network/issuer along with the standard transaction
+    authorization messages. The goal of the PaymentMandate is to help the
+    network/issuer build trust into the agentic transaction.
+    """
+
+    payment_mandate_contents: Required[PaymentMandateContents]
+    """The data contents of the payment mandate."""
+    
+    user_authorization: NotRequired[str]
+    """This is a base64_url-encoded verifiable presentation of a verifiable
+        credential signing over the cart_mandate and payment_mandate_hashes.
+        For example an sd-jwt-vc would contain:
+
+        - An issuer-signed jwt authorizing a 'cnf' claim
+        - A key-binding jwt with the claims
+            "aud": ...
+            "nonce": ...
+            "sd_hash": hash of the issuer-signed jwt
+            "transaction_data": an array containing the secure hashes of 
+              CartMandate and PaymentMandateContents.
+
+        """
+
+
+# -----------------------------------------------------------------------------
+# Credit System for Hibiscus Centralized Management <NotPartOfA2A>
+# -----------------------------------------------------------------------------
+
+@pydantic.with_config({"alias_generator": to_camel})
+class AgentExecutionCost(TypedDict):
+    """Defines the credit cost for executing an agent."""
+
+    agent_id: Required[str]
+    """The unique identifier of the agent."""
+    
+    agent_name: Required[str]
+    """The name of the agent."""
+    
+    credits_per_request: Required[int]
+    """The number of credits required to execute the agent."""
+    
+    creator_did: Required[str]
+    """The DID of the creator of the agent."""
+    
+    minimum_trust_level: Required[TrustLevel]
+    """The minimum trust level required to execute the agent."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class ExecutionRequest(TypedDict):
+    """Represents a request to execute an agent with credit verification."""
+
+    request_id: Required[UUID]
+    """The unique identifier of the request."""
+    
+    executor_did: Required[str]
+    """The DID of the executor."""
+    
+    agent_id: Required[str]
+    """The unique identifier of the agent."""
+    
+    input_data: Required[str]
+    """The input data for the agent execution."""
+    
+    estimated_credits: Required[int]
+    """The estimated number of credits required for the execution."""
+    
+    trust_level: Required[TrustLevel]
+    """The trust level of the executor."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class ExecutionResponse(TypedDict):
+    """Represents the response from an agent execution with credit deduction."""
+
+    request_id: Required[UUID]
+    """The unique identifier of the request."""
+    
+    execution_id: Required[UUID]
+    """The unique identifier of the execution."""
+    
+    success: Required[bool]
+    """Indicates whether the execution was successful."""
+    
+    credits_charged: Required[int]
+    """The number of credits charged for the execution."""
+    
+    transaction_id: NotRequired[UUID]
+    """The unique identifier of the transaction."""
+    
+    output_data: NotRequired[str]
+    """The output data from the agent execution."""
+    
+    error_message: NotRequired[str]
+    """The error message if the execution failed."""
+    
+    execution_time: Required[str]
+    """The time the execution was completed."""
+
+
+
+
 
     
