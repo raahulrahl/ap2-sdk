@@ -392,3 +392,193 @@ class TaskPushNotificationConfig(TypedDict):
 # Task
 # -----------------------------------------------------------------------------
 
+@pydantic.with_config({"alias_generator": to_camel})
+class TaskStatus(TypedDict):
+    """Status information for a task."""
+
+    message: NotRequired[Message]
+    state: Required[TaskState]
+    timestamp: Required[str] = Field(
+        examples=["2025-10-10T10:00:00Z"], description="ISO datetime value of when the status was updated."
+    )
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class Task(TypedDict):
+    """Stateful execution unit that coordinates client-agent interaction to achieve a goal.
+
+    Tasks serve as the primary coordination mechanism in the Pebbling protocol,
+    managing the complete lifecycle from request to completion. They maintain
+    conversation history, track execution state, and collect generated artifacts.
+
+    Core Responsibilities:
+    - Message Exchange: Facilitate communication between clients and agents
+    - State Management: Track task progress and execution status
+    - Artifact Collection: Gather and organize agent-generated outputs
+    - History Tracking: Maintain complete conversation and decision trail
+
+    Task Lifecycle:
+    1. Creation: Client initiates task with initial message/requirements
+    2. Processing: Agent processes messages and updates status
+    3. Communication: Bidirectional message exchange as needed
+    4. Artifact Generation: Agent produces deliverable outputs
+    5. Completion: Final status update and artifact delivery
+
+    Key Properties:
+    - Client-Initiated: Always created by clients, never by agents
+    - Agent-Controlled: Status and progress determined by executing agent
+    - Stateful: Maintains complete execution context and history
+    - Traceable: Unique ID enables task tracking and reference
+
+    Task Relationships:
+    - Contains: Multiple messages (conversation history)
+    - Produces: Multiple artifacts (execution results)
+    - References: Other tasks via reference_task_ids for coordination
+    - Belongs to: Specific context for session management
+    """
+
+    id: Required[UUID]
+    """The ID of the task."""
+    
+    context_id: Required[UUID]
+    """The ID of the context the task is associated with."""
+    
+    kind: Required[Literal["task"]]
+    """The type of the task."""
+    
+    status: Required[TaskStatus]
+    """The status of the task."""
+
+    artifacts: NotRequired[list[Artifact]]
+    """The artifacts of the task."""
+    
+    history: NotRequired[list[Message]]
+    """The history of the task."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """The metadata of the task."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class TaskStatusUpdateEvent(TypedDict):
+    """Event sent by the agent to notify the client of a change in a task's status.
+
+    This is typically used in streaming or subscription models.
+    """
+
+    task_id: Required[UUID]
+    """The ID of the task."""
+    
+    context_id: Required[UUID]
+    """The ID of the context the task is associated with."""
+    
+    final: Required[bool]
+    """Indicates if this is the final status update."""
+    
+    kind: Required[Literal["status-update"]]
+    """The type of the event."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+    
+    status: Required[TaskStatus]
+    """The status of the task."""
+    
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class TaskArtifactUpdateEvent(TypedDict):
+    """Event sent by the agent to notify the client that an artifact has been generated or updated.
+    
+    This is typically used in streaming models.
+    """
+
+    task_id: Required[UUID]
+    """The ID of the task."""
+    
+    append: NotRequired[bool]
+    """Indicates if this is an append operation."""
+    
+    artifact: Required[Artifact]
+    """The artifact that has been generated or updated."""
+    
+    context_id: Required[UUID]
+    """The ID of the context the task is associated with."""
+    
+    kind: Required[Literal["artifact-update"]]
+    """The type of the event."""
+    
+    last_chunk: NotRequired[bool]
+    """Indicates if this is the last chunk of the artifact."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+    
+
+@pydantic.with_config({"alias_generator": to_camel})
+class TaskSendParams(TypedDict):
+    """Internal parameters for task execution within the framework. <NotPartOfA2A>"""
+
+    task_id: Required[UUID]
+    """The ID of the task."""
+    
+    context_id: Required[UUID]
+    """The ID of the context the task is associated with."""
+    
+    message: NotRequired[Message]
+    """The message to send."""
+    
+    history_length: NotRequired[int]
+    """The length of the history."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class TaskIdParams(TypedDict):
+    """Defines parameters containing a task ID, used for simple task operations."""
+
+    task_id: Required[UUID]
+    """The ID of the task."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class TaskQueryParams(TaskIdParams):
+    """Defines parameters for querying a task, with an option to limit history length."""
+
+    history_length: NotRequired[int]
+    """The length of the history."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class ListTasksParams(TypedDict):
+    """Defines parameters for listing tasks. <NotPartOfA2A>"""
+
+    history_length: NotRequired[int]
+    """The length of the history."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class TaskFeedbackParams(TypedDict):
+    """Defines parameters for providing feedback on a task. <NotPartOfA2A>"""
+
+    task_id: Required[UUID]
+    """The ID of the task."""
+    
+    feedback: Required[str]
+    """The feedback to provide."""
+    
+    rating: NotRequired[int]  # Optional rating 1(lowest)-5(highest)
+    """The rating to provide."""
+    
+    metadata: NotRequired[dict[str, Any]]
+    """Additional metadata."""
+
+    
