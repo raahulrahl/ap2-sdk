@@ -1237,6 +1237,216 @@ class ExecutionResponse(TypedDict):
     """The time the execution was completed."""
 
 
+# -----------------------------------------------------------------------------
+# JSON-RPC Definition and Error Types
+# -----------------------------------------------------------------------------
+
+CodeT = TypeVar("CodeT", bound=int)
+MessageT = TypeVar("MessageT", bound=str)
+
+Method = TypeVar("Method")
+Params = TypeVar("Params")
+
+
+class JSONRPCMessage(TypedDict):
+    """A JSON RPC message."""
+
+    jsonrpc: Required[Literal["2.0"]]
+    id: Required[UUID]
+
+
+class JSONRPCRequest(JSONRPCMessage, Generic[Method, Params]):
+    """A JSON RPC request."""
+
+    method: Required[Method]
+    params: Required[Params]
+
+
+class JSONRPCError(TypedDict, Generic[CodeT, MessageT]):
+    """A JSON RPC error."""
+
+    code: Required[CodeT]
+    message: Required[MessageT]
+    data: NotRequired[Any]
+
+
+class JSONRPCResponse(JSONRPCMessage, Generic[ResultT, ErrorT]):
+    """A JSON RPC response."""
+
+    result: NotRequired[ResultT]
+    error: NotRequired[ErrorT]
+
+
+JSONParseError = JSONRPCError[
+    Literal[-32700],
+    Literal[
+        "Failed to parse JSON payload. Please ensure the request body contains valid JSON syntax. See: https://www.jsonrpc.org/specification#error_object"
+    ],
+]
+InvalidRequestError = JSONRPCError[
+    Literal[-32600],
+    Literal[
+        "Request payload validation failed. The request structure does not conform to JSON-RPC 2.0 specification. See: https://www.jsonrpc.org/specification#request_object"
+    ],
+]
+MethodNotFoundError = JSONRPCError[
+    Literal[-32601],
+    Literal[
+        "The requested method is not available on this server. Please check the method name and try again. See API docs: /docs"
+    ],
+]
+InvalidParamsError = JSONRPCError[
+    Literal[-32602],
+    Literal[
+        "Invalid or missing parameters for the requested method. Please verify parameter types and required fields. See API docs: /docs"
+    ],
+]
+InternalError = JSONRPCError[
+    Literal[-32603],
+    Literal[
+        "An internal server error occurred while processing the request. Please try again or contact support if the issue persists. See: /health"
+    ],
+]
+TaskNotFoundError = JSONRPCError[
+    Literal[-32001],
+    Literal[
+        "The specified task ID was not found. The task may have been completed, canceled, or expired. Check task status: GET /tasks/{id}"
+    ],
+]
+TaskNotCancelableError = JSONRPCError[
+    Literal[-32002],
+    Literal[
+        "This task cannot be canceled in its current state. Tasks can only be canceled while pending or running. See task lifecycle: /docs/tasks"
+    ],
+]
+ContextNotFoundError = JSONRPCError[
+    Literal[-32003],
+    Literal[
+        "The specified context ID was not found. The context may have been deleted or expired. Check context status: GET /contexts/{id}"
+    ],
+]
+ContextNotCancelableError = JSONRPCError[
+    Literal[-32004],
+    Literal[
+        "This context cannot be canceled in its current state. Contexts can only be canceled while pending or running. See context lifecycle: /docs/contexts"
+    ],
+]
+PushNotificationNotSupportedError = JSONRPCError[
+    Literal[-32005],
+    Literal[
+        "Push notifications are not supported by this server configuration. Please use polling to check task status. See: GET /tasks/{id}"
+    ],
+]
+UnsupportedOperationError = JSONRPCError[
+    Literal[-32006],
+    Literal[
+        "The requested operation is not supported by this agent or server configuration. See supported operations: /docs/capabilities"
+    ],
+]
+ContentTypeNotSupportedError = JSONRPCError[
+    Literal[-32007],
+    Literal[
+        "The content type in the request is not supported. Please use application/json or check supported content types. See: /docs/content-types"
+    ],
+]
+InvalidAgentResponseError = JSONRPCError[
+    Literal[-32008],
+    Literal[
+        "The agent returned an invalid or malformed response. This may indicate an agent configuration issue. See troubleshooting: /docs/troubleshooting"
+    ],
+]
+
+
+# -----------------------------------------------------------------------------
+# JSON-RPC Request & Response Types
+# -----------------------------------------------------------------------------
+
+SendMessageRequest = JSONRPCRequest[Literal["message/send"], MessageSendParams]
+SendMessageResponse = JSONRPCResponse[Union[Task, Message], JSONRPCError[Any, Any]]
+
+StreamMessageRequest = JSONRPCRequest[Literal["message/stream"], MessageSendParams]
+StreamMessageResponse = JSONRPCResponse[Union[Task, Message], JSONRPCError[Any, Any]]
+
+GetTaskRequest = JSONRPCRequest[Literal["tasks/get"], TaskQueryParams]
+GetTaskResponse = JSONRPCResponse[Task, TaskNotFoundError]
+
+CancelTaskRequest = JSONRPCRequest[Literal["tasks/cancel"], TaskIdParams]
+CancelTaskResponse = JSONRPCResponse[Task, Union[TaskNotCancelableError, TaskNotFoundError]]
+
+ListTasksRequest = JSONRPCRequest[Literal["tasks/list"], ListTasksParams]
+ListTasksResponse = JSONRPCResponse[List[Task], Union[TaskNotFoundError, TaskNotCancelableError]]
+
+TaskFeedbackRequest = JSONRPCRequest[Literal["tasks/feedback"], TaskFeedbackParams]
+TaskFeedbackResponse = JSONRPCResponse[Dict[str, str], TaskNotFoundError]
+
+ListContextsRequest = JSONRPCRequest[Literal["contexts/list"], ListContextsParams]
+ListContextsResponse = JSONRPCResponse[List[Context], Union[ContextNotFoundError, ContextNotCancelableError]]
+
+ClearContextsRequest = JSONRPCRequest[Literal["contexts/clear"], ContextIdParams]
+ClearContextsResponse = JSONRPCResponse[Context, JSONRPCError[ContextNotFoundError, ContextNotCancelableError]]
+
+SetTaskPushNotificationRequest = JSONRPCRequest[Literal["tasks/pushNotification/set"], TaskPushNotificationConfig]
+SetTaskPushNotificationResponse = JSONRPCResponse[TaskPushNotificationConfig, PushNotificationNotSupportedError]
+
+GetTaskPushNotificationRequest = JSONRPCRequest[Literal["tasks/pushNotification/get"], TaskIdParams]
+GetTaskPushNotificationResponse = JSONRPCResponse[TaskPushNotificationConfig, PushNotificationNotSupportedError]
+
+ResubscribeTaskRequest = JSONRPCRequest[Literal["tasks/resubscribe"], TaskIdParams]
+ResubscribeTaskResponse = JSONRPCResponse[Task, Union[TaskNotCancelableError, TaskNotFoundError]]
+
+ListTaskPushNotificationConfigRequest = JSONRPCRequest[
+    Literal["tasks/pushNotificationConfig/list"], ListTaskPushNotificationConfigParams
+]
+ListTaskPushNotificationConfigResponse = JSONRPCResponse[TaskPushNotificationConfig, PushNotificationNotSupportedError]
+
+DeleteTaskPushNotificationConfigRequest = JSONRPCRequest[
+    Literal["tasks/pushNotificationConfig/delete"], DeleteTaskPushNotificationConfigParams
+]
+DeleteTaskPushNotificationConfigResponse = JSONRPCResponse[
+    TaskPushNotificationConfig, PushNotificationNotSupportedError
+]
+
+PebblingRequest = Annotated[
+    Union[
+        SendMessageRequest,
+        StreamMessageRequest,
+        GetTaskRequest,
+        CancelTaskRequest,
+        ListTasksRequest,
+        TaskFeedbackRequest,
+        ListContextsRequest,
+        ClearContextsRequest,
+        SetTaskPushNotificationRequest,
+        GetTaskPushNotificationRequest,
+        ResubscribeTaskRequest,
+        ListTaskPushNotificationConfigRequest,
+        DeleteTaskPushNotificationConfigRequest,
+    ],
+    Discriminator("method"),
+]
+
+PebblingResponse: TypeAlias = Union[
+    SendMessageResponse,
+    StreamMessageResponse,
+    GetTaskResponse,
+    CancelTaskResponse,
+    ListTasksResponse,
+    TaskFeedbackResponse,
+    ListContextsResponse,
+    ClearContextsResponse,
+    SetTaskPushNotificationResponse,
+    GetTaskPushNotificationResponse,
+    ResubscribeTaskResponse,
+    ListTaskPushNotificationConfigResponse,
+    DeleteTaskPushNotificationConfigResponse,
+]
+
+pebble_request_ta: TypeAdapter[PebblingRequest] = TypeAdapter(PebblingRequest)
+pebble_response_ta: TypeAdapter[PebblingResponse] = TypeAdapter(PebblingResponse)
+send_message_request_ta: TypeAdapter[SendMessageRequest] = TypeAdapter(SendMessageRequest)
+send_message_response_ta: TypeAdapter[SendMessageResponse] = TypeAdapter(SendMessageResponse)
+stream_message_request_ta: TypeAdapter[StreamMessageRequest] = TypeAdapter(StreamMessageRequest)
+stream_message_response_ta: TypeAdapter[StreamMessageResponse] = TypeAdapter(StreamMessageResponse)
 
 
 
