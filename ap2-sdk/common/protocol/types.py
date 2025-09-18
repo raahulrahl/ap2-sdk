@@ -27,55 +27,57 @@ ErrorT = TypeVar("ErrorT")
 Role: TypeAlias = Literal["agent", "user"]
 
 TaskState: TypeAlias = Literal[
-    "submitted",
-    "working",
-    "input-required",
-    "completed",
-    "canceled",
-    "failed",
-    "rejected",
-    "auth-required",
-    "unknown",
-    "trust-verification-required",
-    "pending",
-    "suspended",
-    "resumed",
-    "negotiation-bid-submitted",
-    "negotiation-bid-lost",
-    "negotiation-bid-won",
+    "submitted",  # The task has been submitted and is awaiting execution.
+    "working",  # The agent is actively working on the task.
+    "input-required",  # The task is paused and waiting for input from the user.
+    "completed",  # The task has been successfully completed.
+    "canceled",  # The task has been canceled by the user.
+    "failed",  # The task failed due to an error during execution.
+    "rejected",  # The task was rejected by the agent and was not started.
+    "auth-required",  # The task requires authentication to proceed.
+    "unknown",  # The task is in an unknown or indeterminate state. <NotPartOfA2A>
+    "trust-verification-required",  # The task requires trust verification to proceed. <NotPartOfA2A>
+    "pending",  # The task is pending execution. <NotPartOfA2A>
+    "suspended",  # The task is suspended and is not currently running. <NotPartOfA2A>
+    "resumed",  # The task is resumed and is currently running. <NotPartOfA2A>
+    "negotiation-bid-submitted",  # The task is submitted for negotiation. <NotPartOfA2A>
+    "negotiation-bid-lost",  # The task bid was lost in negotiation. <NotPartOfA2A>
+    "negotiation-bid-won",  # The task bid was won in negotiation. <NotPartOfA2A>
 ]
 
-ErrorCode: TypeAlias = Literal["server_error", "invalid_input", "not_found"]
-
-RunMode: TypeAlias = Literal[
-    "sync",  # Synchronous execution, wait for complete response
-    "async",  # Asynchronous execution, don't wait for response
-    "stream",  # Streaming execution, receive partial results
+NegotiationStatus: TypeAlias = Literal[
+    "proposed",  # The negotiation is proposed. <NotPartOfA2A>
+    "accepted",  # The negotiation is accepted. <NotPartOfA2A>
+    "rejected",  # The negotiation is rejected. <NotPartOfA2A>
+    "countered",  # The negotiation is countered. <NotPartOfA2A>
 ]
 
-NegotiationStatus: TypeAlias = Literal["proposed", "accepted", "rejected", "countered"]
-
-NegotiationSessionStatus: TypeAlias = Literal["initiated", "ongoing", "completed", "rejected"]
+NegotiationSessionStatus: TypeAlias = Literal[
+    "initiated",  # The negotiation session is initiated. <NotPartOfA2A>
+    "ongoing",  # The negotiation session is ongoing. <NotPartOfA2A>
+    "completed",  # The negotiation session is completed. <NotPartOfA2A>
+    "rejected",  # The negotiation session is rejected. <NotPartOfA2A>
+]
 
 TrustLevel: TypeAlias = Literal[
-    "admin",  # Admin operations, minimal risk
-    "analyst",  # Standard operations
-    "auditor",  # Sensitive operations
-    "editor",  # Edit operations, moderate risk
-    "guest",  # Limited access, read-only operations
-    "manager",  # Management operations, elevated permissions
-    "operator",  # System operations, moderate risk
-    "super_admin",  # Highest level access, all operations permitted
-    "support",  # Support operations, troubleshooting access
-    "viewer",  # View-only access, minimal permissions
+    "admin",  # Admin operations, minimal risk <NotPartOfA2A>
+    "analyst",  # Standard operations <NotPartOfA2A>
+    "auditor",  # Sensitive operations <NotPartOfA2A>
+    "editor",  # Edit operations, moderate risk <NotPartOfA2A>
+    "guest",  # Limited access, read-only operations <NotPartOfA2A>
+    "manager",  # Management operations, elevated permissions <NotPartOfA2A>
+    "operator",  # System operations, moderate risk <NotPartOfA2A>
+    "super_admin",  # Highest level access, all operations permitted <NotPartOfA2A>
+    "support",  # Support operations, troubleshooting access <NotPartOfA2A>
+    "viewer",  # View-only access, minimal permissions <NotPartOfA2A>
 ]
 
 IdentityProvider: TypeAlias = Literal[
-    "keycloak",
-    "azure_ad",
-    "okta",
-    "auth0",
-    "custom",
+    "keycloak",  # Keycloak identity provider <NotPartOfA2A>
+    "azure_ad",  # Azure AD identity provider <NotPartOfA2A>
+    "okta",  # Okta identity provider <NotPartOfA2A>
+    "auth0",  # Auth0 identity provider <NotPartOfA2A>
+    "custom",  # Custom identity provider <NotPartOfA2A>
 ]
 
 # -----------------------------------------------------------------------------
