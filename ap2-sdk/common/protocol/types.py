@@ -7,11 +7,11 @@ agents and the framework.
 
 from __future__ import annotations as _annotations
 
-from typing import Annotated, Any, Literal, List, TypeVar, Union, Dict
+from typing import Annotated, Any, Literal, List, TypeVar, Union, Dict, Generic
 from uuid import UUID
 
 import pydantic
-from pydantic import Discriminator, Field
+from pydantic import Discriminator, Field, TypeAdapter
 from pydantic.alias_generators import to_camel
 from typing_extensions import Required, NotRequired, TypeAlias, TypedDict
 
@@ -1406,7 +1406,7 @@ DeleteTaskPushNotificationConfigResponse = JSONRPCResponse[
     TaskPushNotificationConfig, PushNotificationNotSupportedError
 ]
 
-PebblingRequest = Annotated[
+A2ARequest = Annotated[
     Union[
         SendMessageRequest,
         StreamMessageRequest,
@@ -1425,7 +1425,7 @@ PebblingRequest = Annotated[
     Discriminator("method"),
 ]
 
-PebblingResponse: TypeAlias = Union[
+A2AResponse: TypeAlias = Union[
     SendMessageResponse,
     StreamMessageResponse,
     GetTaskResponse,
@@ -1441,13 +1441,271 @@ PebblingResponse: TypeAlias = Union[
     DeleteTaskPushNotificationConfigResponse,
 ]
 
-pebble_request_ta: TypeAdapter[PebblingRequest] = TypeAdapter(PebblingRequest)
-pebble_response_ta: TypeAdapter[PebblingResponse] = TypeAdapter(PebblingResponse)
+a2a_request_ta: TypeAdapter[A2ARequest] = TypeAdapter(A2ARequest)
+a2a_response_ta: TypeAdapter[A2AResponse] = TypeAdapter(A2AResponse)
 send_message_request_ta: TypeAdapter[SendMessageRequest] = TypeAdapter(SendMessageRequest)
 send_message_response_ta: TypeAdapter[SendMessageResponse] = TypeAdapter(SendMessageResponse)
 stream_message_request_ta: TypeAdapter[StreamMessageRequest] = TypeAdapter(StreamMessageRequest)
 stream_message_response_ta: TypeAdapter[StreamMessageResponse] = TypeAdapter(StreamMessageResponse)
 
 
+# -----------------------------------------------------------------------------
+# Trust
+# -----------------------------------------------------------------------------
 
+@pydantic.with_config({"alias_generator": to_camel})
+class KeycloakRole(TypedDict):
+    """Keycloak role model."""
+
+    role_id: Required[UUID]
+    """The ID of the role."""
     
+    role_name: Required[str]
+    """The name of the role."""
+    
+    permissions: Required[List[str]]
+    """The permissions of the role."""
+    
+    trust_level: Required[TrustLevel]
+    """The trust level of the role."""
+    
+    realm_name: Required[str]
+    """The realm name of the role."""
+    
+    external_mappings: NotRequired[Dict[str, str]] = {}
+    """The external mappings of the role."""
+    
+    operation_permissions: NotRequired[Dict[str, TrustLevel]] = {}
+    """The operation permissions of the role."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class AgentTrust(TypedDict):
+    """Trust configuration for an agent."""
+
+    identity_provider: Required[IdentityProvider]
+    """The identity provider of the agent."""
+    
+    inherited_roles: Required[List[KeycloakRole]]
+    """The roles inherited by the agent."""
+    
+    certificate: NotRequired[str]
+    """The certificate of the agent."""
+    
+    certificate_fingerprint: NotRequired[str]
+    """The fingerprint of the certificate of the agent."""
+    
+    creator_id: Union[UUID, int, str]
+    """The creator ID of the agent."""
+    
+    creation_timestamp: int
+    """The creation timestamp of the agent."""
+    trust_verification_required: bool
+    allowed_operations: Dict[str, TrustLevel]
+
+
+# -----------------------------------------------------------------------------
+# Agent
+# -----------------------------------------------------------------------------
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class AgentIdentity(TypedDict):
+    """Agent identity configuration with DID and other identifiers."""
+
+    did: Required[str]
+    """The agent's Decentralized Identifier (DID)."""
+
+    did_document: Required[Dict[str, Any]]
+    """The agent's DID document containing public keys and other identifiers."""
+
+    agentdns_url: NotRequired[str]
+    """The agent's AgentDNS URL for decentralized identity resolution."""
+
+    endpoint: NotRequired[str]
+    """The agent's endpoint URL for communication."""
+
+    public_key: Required[str]
+    """The agent's public key for authentication."""
+
+    csr: Required[str]
+    """The agent's Certificate Signing Request (CSR) for authentication."""
+
+
+@pydantic.with_config({'alias_generator': to_camel})
+class AgentInterface(TypedDict):
+    """An interface that the agent supports."""
+
+    transport: str
+    """The transport protocol (e.g., 'jsonrpc', 'websocket')."""
+
+    url: str
+    """The URL endpoint for this transport."""
+
+    description: NotRequired[str]
+    """Description of this interface."""
+
+
+@pydantic.with_config({'alias_generator': to_camel})
+class AgentExtension(TypedDict):
+    """A declaration of an extension supported by an Agent."""
+
+    uri: str
+    """The URI of the extension."""
+
+    description: NotRequired[str]
+    """A description of how this agent uses this extension."""
+
+    required: NotRequired[bool]
+    """Whether the client must follow specific requirements of the extension."""
+
+    params: NotRequired[dict[str, Any]]
+    """Optional configuration for the extension."""
+
+
+@pydantic.with_config({'alias_generator': to_camel})
+class Skill(TypedDict):
+    """Skills are a unit of capability that an agent can perform."""
+
+    id: str
+    """A unique identifier for the skill."""
+
+    name: str
+    """Human readable name of the skill."""
+
+    description: str
+    """A human-readable description of the skill.
+
+    It will be used by the client or a human as a hint to understand the skill.
+    """
+
+    tags: list[str]
+    """Set of tag-words describing classes of capabilities for this specific skill.
+
+    Examples: "cooking", "customer support", "billing".
+    """
+
+    examples: NotRequired[list[str]]
+    """The set of example scenarios that the skill can perform.
+
+    Will be used by the client as a hint to understand how the skill can be used. (e.g. "I need a recipe for bread")
+    """
+
+    input_modes: list[str]
+    """Supported mime types for input data."""
+
+    output_modes: list[str]
+    """Supported mime types for output data."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class AgentCapabilities(TypedDict):
+    """Defines optional capabilities supported by an agent."""
+
+    extensions: NotRequired[list[AgentExtension]]
+    """List of extensions supported by the agent."""
+    
+    push_notifications: NotRequired[bool]
+    """Whether the agent supports push notifications."""
+    
+    state_transition_history: NotRequired[bool]
+    """Whether the agent supports state transition history."""
+    
+    streaming: NotRequired[bool]
+    """Whether the agent supports streaming."""
+
+
+@pydantic.with_config({"alias_generator": to_camel})
+class AgentCard(TypedDict):
+    """The card that describes an agent - following Pebbling pattern."""
+
+    id: Required[UUID]
+    """Unique identifier for the agent."""
+    
+    name: Required[str]
+    """Human readable name of the agent."""
+    
+    description: Required[str]
+    """A human-readable description of the agent.
+
+    It will be used by the client or a human as a hint to understand the agent.
+    """
+    
+    url: Required[str]
+    """URL of the agent."""
+    
+    version: Required[str]
+    """Version of the agent."""
+    
+    protocol_version: Required[str]
+    """Version of the protocol used by the agent."""
+    
+    documentation_url: NotRequired[str]
+    """URL of the documentation of the agent."""
+
+    icon_url: NotRequired[str]
+    """A URL to an icon for the agent."""
+
+    identity: Required[AgentIdentity]
+    """Identity of the agent."""
+    
+    agent_trust: Required[AgentTrust]
+    """Trust of the agent."""
+
+    capabilities: Required[AgentCapabilities]
+    """Capabilities of the agent."""
+    
+    skills: Required[List[Skill]]
+    """Skills of the agent."""
+
+    kind: Required[Literal["agent", "team", "workflow"]]
+    """Kind of the agent."""
+
+    execution_cost: NotRequired[AgentExecutionCost]
+    """Execution cost of the agent."""
+
+    num_history_sessions: Required[int]
+    """Number of history sessions of the agent."""
+
+    preferred_transport: NotRequired[str]
+    """The transport of the preferred endpoint. If empty, defaults to JSONRPC."""
+    
+    extra_data: Required[Dict[str, Any]]
+    """Extra data about the agent."""
+
+    debug_mode: Required[bool]
+    """Debug mode of the agent."""
+    
+    debug_level: Required[Literal[1, 2]]
+    """Debug level of the agent."""
+
+    monitoring: Required[bool]
+    """Monitoring of the agent."""
+    
+    telemetry: Required[bool]
+    """Telemetry of the agent."""
+
+    additional_interfaces: NotRequired[list[AgentInterface]]
+    """Announcement of additional supported transports."""
+
+    security: NotRequired[list[dict[str, list[str]]]]
+    """Security requirements for contacting the agent."""
+
+    security_schemes: NotRequired[dict[str, SecurityScheme]]
+    """Security scheme definitions."""
+
+    default_input_modes: list[str]
+    """Supported mime types for input data."""
+
+    default_output_modes: list[str]
+    """Supported mime types for output data."""
+
+agent_card_ta = pydantic.TypeAdapter(AgentCard)
+
+# Rebuild TypeAdapters to resolve forward references
+a2a_request_ta.rebuild()
+a2a_response_ta.rebuild()
+send_message_request_ta.rebuild()
+send_message_response_ta.rebuild()
+stream_message_request_ta.rebuild()
+stream_message_response_ta.rebuild()
